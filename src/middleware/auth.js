@@ -1,6 +1,6 @@
 // contains only user authenticate function
-const jwt = require('jsonwebtoken');       // jsonwebtoken to generate hash of password
-const User = require('../models/user');    //user model
+const jwt = require('jsonwebtoken');
+const User = require('../models/user');
 
 /** check weather user is authanticated to perform a task for given endpoint.
  *  this method can be called before any endpoint operation to validate user
@@ -13,7 +13,6 @@ const auth = async(req,res,next) =>{
         const decoded = jwt.verify(token,'taskapplication');       // decode token to get user id
         const user = await User.findOne({_id: decoded._id, 'tokens.token':token }); //find user having same token stored in header variable
 
-        // user not found then throw an error
         if(!user){
             throw new Error();
         }
@@ -24,9 +23,9 @@ const auth = async(req,res,next) =>{
 
         next();
     }catch(e){
-        res.status(401).send({error : "please, authanticate."})  //user not logged in then send error meassage.
+        res.status(401).send({error : "please, authanticate."})
     }
 
 };
 
-module.exports = auth; // export function
+module.exports = auth;

@@ -1,11 +1,11 @@
-const express = require('express')
-const User = require('../models/user')   // user model
+const express = require('express');
+const User = require('../models/user');
 const router = new express.Router();
-const auth = require('../middleware/auth')
-const Task = require('../models/task'); //task model
-const mongoose = require('mongoose')
+const auth = require('../middleware/auth'); // funtion to authorize user
+const Task = require('../models/task');
+const mongoose = require('mongoose');
 
-// upload user data by default employee otherwise manager
+/**add new user - by default employee otherwise manager*/
 //---------------------------
 router.post('/users',async (req,res)=>{
     const user = new User(req.body)
@@ -15,22 +15,22 @@ router.post('/users',async (req,res)=>{
         res.status(201).send({user,token});
     }
     catch(e){
-        res.status(400).send(e);
+        res.status(400).send(e.message);
     }
 });
 
-// user login
+/**login user - if user exists then generate token for session */
 router.post('/users/login',async(req,res)=>{
     try{
         const user = await User.findByCredentials(req.body.email,req.body.password);
         const token = await user.generateAuthToken();
         res.send({user,token})
     }catch(e){      
-        res.status(400).send();
+        res.status(400).send(e.message);
     }
 });
 
-// user current session logout
+/**logout current session of user - remove current session token */
 router.post('/users/logout',auth,async(req,res)=>{
     try{
         req.user.tokens = req.user.tokens.filter((token) =>{
@@ -39,29 +39,31 @@ router.post('/users/logout',auth,async(req,res)=>{
         await req.user.save()
         res.send()
     }catch(e){
-        res.status(500).send()
+        res.status(500).send(e.message)
     }
 })
 
-// all user session logout
+/**logout all session of user and remove all session tokens */
 router.post('/users/logoutAll',auth,async(req,res)=>{
     try{
         req.user.tokens = [];
         await req.user.save();
         res.send();
     }catch(e){
-        res.status(500).send();
+        res.status(500).send(e.message);
     }
 })
 
-//GET - /users?avgLoad=true  : Manager - can see average load (of priority) wise employee list, Employee - not eligible for this option
-//GET - /users?role=manager  : Manager - can see manager list or employee list, Employee - not eligible for this option
+/** get filtered and sorted user list as per passsed parameter value
+* GET - /users?avgLoad=true  : Manager - can see average load (of priority) wise employee list, Employee - not eligible for this option
+* GET - /users?role=manager  : Manager - can see manager list or employee list, Employee - not eligible for this option */
 //--------------------------------
 router.get('/users',auth,async (req,res)=>{
     let users = {};
     let agg = []; // variable to generate aggregate query to find average work load wise user list
     
     if (req.user.role === 'manager'){
+        
         // if manager demanded rolewise i.e. manager or employee wise data then apply filter for it
         if(req.query.role){
             agg = [{
@@ -69,17 +71,15 @@ router.get('/users',auth,async (req,res)=>{
                     }]
         }
         
-        /** prepare aggregate query if manager wants to see average work loadwise user list
-         * aggregate query stage information
-         * 1st stage : lookup from tasks using pipeline match assigned to employee id from task with user id to get user information, then calculate
-         *      average work load by grouping on employee,
-         * 2nd stage : unwind data return from stage 1
-         * 3rd stage : project usefull fields.
-         */
+        // prepare aggregate query if manager wants to see average work loadwise user list
         if(req.query.avgLoad){ 
             
             agg = [...agg,{
-              '$lookup': {
+                
+                //lookup from tasks using pipeline match assigned to employee id from task with user id to get user information, then calculate
+               //average work load by grouping on employee assigned to task,
+              
+               '$lookup': {
                 'from': 'tasks', 
                 'let': {
                   'userid': '$_id'
@@ -117,6 +117,7 @@ router.get('/users',auth,async (req,res)=>{
     }
     try{
         users = await User.aggregate(agg);
+        
         // avrage work load is in number value replace it with string to understand easily
         // wrokload is <=4 = Low, >4 & < 8 = Medium , >=8 = High
         if (req.query.avgLoad){
@@ -126,16 +127,17 @@ router.get('/users',auth,async (req,res)=>{
         }
 
         res.send(users);
+    
     }catch(e){
-        console.log(e);
-        res.status(500).send();
+        
+        res.status(500).send(e.message);
     }
 });
 
 
-/** manager can update all fields of any user data.
- * employee can update only his/her name, contactno,address data in user
- * also check weather list of fields to be updated is exists in collection or not
+/** update user data for given Id
+ * magager can updae any user information
+ * employee can update it's own data only.
  */
 //-------------------------------
 router.patch('/users/:_id',auth, async(req,res) => {
@@ -155,9 +157,8 @@ router.patch('/users/:_id',auth, async(req,res) => {
         }
     }
 
+    // check allowed field lists exists in collection or not   
     const updates = Object.keys(req.body);
-    
-    // check prepar field lists exists in collection or not
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
 
     if(! isValidOperation){
@@ -172,12 +173,14 @@ router.patch('/users/:_id',auth, async(req,res) => {
         await req.user.save();
 
         res.send(req.user);
+    
     }catch(e){
-        res.status(500).send(e);
+
+        res.status(500).send(e.message);
     }
 });
 
-//only manager can delete any user or task data
+/**only manager can delete any user or task data*/
 router.delete('/users/:_id',auth, async(req,res)=>{
     if(req.user.role === 'employee'){
         return res.status(400).send({'error':'you have no rights for this operation.'});
@@ -186,7 +189,7 @@ router.delete('/users/:_id',auth, async(req,res)=>{
         const user = await User.findByIdAndDelete(req.params._id);
         res.send(user);
     } catch (e) {
-        res.status(500).send()
+        res.status(500).send(e.message)
     }
 });
 

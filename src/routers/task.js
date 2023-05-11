@@ -1,11 +1,11 @@
 // file to configure task endpoints
 const express = require('express')
-const Task = require('../models/task')   //task model
+const Task = require('../models/task')
 const auth = require('../middleware/auth')  // user authantication method
 const router = new express.Router();
 const mongoose = require('mongoose');
 
-//create Task for passed employee ID - only manager can create task for employees
+/**create new Task for passed employee ID - only manager can create task for employees*/
 //--------------------------------
 router.post('/tasks/:_empid', auth, async (req,res)=>{
     const task = new Task({
@@ -18,7 +18,7 @@ router.post('/tasks/:_empid', auth, async (req,res)=>{
         await task.save()
         res.status(201).send(task);
     }catch(e){
-        res.status(400).send(e);
+        res.status(400).send(e.message);
     }
 })
 
@@ -30,8 +30,8 @@ router.post('/tasks/:_empid', auth, async (req,res)=>{
 **/
 router.get('/tasks',auth,async (req,res)=>{
     let tasks = {};
-    let findCondition = {};     // variable to create data for find()
-    let sortCondition = {createdAt: -1}; // variable to create data for sort() by default descending created date wise
+    let findCondition = {};
+    let sortCondition = {createdAt: -1}; // variable to create data for sort() by default descending order by created date wise
 
     // if priority variable found in query string then store condition for that
     if (req.query.priority){
@@ -45,20 +45,16 @@ router.get('/tasks',auth,async (req,res)=>{
 
     // as per logged in user role
     // manager - can access employee wise/all , priority wise, datewise tasks list
-    // employee - can access only his/her data priority wise, datewise list
+    // employee - can access only own data priority wise, datewise list
     try{
         if (req.user.role === 'manager'){
             tasks = req.query.empid === undefined ? await Task.find(findCondition).sort(sortCondition) : await Task.find({assignto : req.query.empid, ...findCondition}).sort(sortCondition);
         }else{
             tasks = await Task.findOne({assignto : req.user._id, ...findCondition}).sort(sortCondition);
-            // tasks = await req.user.populate({
-            //     path : 'totask',
-            //     match
-            // });
         }
         res.send(tasks);
     }catch(e){
-        res.status(500).send(e);
+        res.status(500).send(e.message);
     }
 });
 
@@ -81,12 +77,10 @@ router.patch('/tasks/:id',auth,async(req,res) =>{
     // check if given fields are exists in allowed fields list or not
     const isValidOperation = updates.every((update) => allowedUpdates.includes(update));
     
-    // if not allowed then return error
     if(!isValidOperation){
         return res.status(400).send({'Error':'Invalid Updates!'});
     }
     
-    // delete task query as per user role
     let task = {};
     try{
         if(req.user.role === 'manager'){
@@ -95,7 +89,6 @@ router.patch('/tasks/:id',auth,async(req,res) =>{
             task = await Task.findOne({_id: req.params.id, assignto: req.user._id});
         }
         
-        // if no tasks found then return error
         if(!task){
             return res.status(404).send();
         }
@@ -108,27 +101,31 @@ router.patch('/tasks/:id',auth,async(req,res) =>{
             task.lastchangedby = req.user._id;
         }
 
-        task.save(req); // save request
+        task.save(req);
 
-        res.send(task); // return deleted task data
+        res.send(task);
     }
     catch(e){
-        res.status(500).send();
+        res.status(500).send(e.message);
     }
 });
 
-// only manager can delete any tasks
+/** Delete Task - only manager can delete */
 router.delete('/tasks/:_id',auth,async (req,res)=>{
     try{
         let task = {};
+        
         if (req.user.role === 'manager'){
             task = await Task.findByIdAndDelete({_id:req.params._id});
         }else{
             return res.status(400).send({'Error' : 'You are not eligible for this operation.'})
         }
+        
         res.send(task);
+    
     }catch(e){
-        res.status(500).send();
+        
+        res.status(500).send(e.message);
     }
 })
 

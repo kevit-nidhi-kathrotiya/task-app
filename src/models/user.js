@@ -1,19 +1,11 @@
 // file to create user schema and define necessary methods or hook on it
-const mongoose = require('mongoose');
-const validator = require('validator'); // to validate field
-const bcrypt = require('bcryptjs');     // to generate hash password and compare with plain password
-const jwt = require('jsonwebtoken');    //  to generate authorization token
-const Task = require('./task');         // perform some operation on pre hook
 
-/**schema for user data
- * name: User name
- * role: user designation - manager or empoyee
- * contactno: contat number
- * email: user email
- * password: user password
- * address : user address
- * toekns : to store tokens generated on login time
- * */
+const mongoose = require('mongoose');
+const validator = require('validator');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken')
+const Task = require('./task');
+
 //--------------------------------
 const userSchema = mongoose.Schema({
     name:{
@@ -21,6 +13,7 @@ const userSchema = mongoose.Schema({
         required:[true,'user name required.'],
         trim:true
     },
+    
     role:{
         type:String,
         enum:{values:['manager','employee'],
@@ -28,6 +21,7 @@ const userSchema = mongoose.Schema({
         },
         default: 'employee'
     },
+    
     contactno:{
         type: String,
         require: [true,'contact number required.'],
@@ -38,6 +32,7 @@ const userSchema = mongoose.Schema({
             }
         }
     },
+    
     email:{
         type: String,
         required: [true,'email required.'],
@@ -50,6 +45,7 @@ const userSchema = mongoose.Schema({
             }
         }
     },
+    
     password:{
         type:String,
         required: [true,'password required.'],
@@ -61,10 +57,13 @@ const userSchema = mongoose.Schema({
             }
         }
     },
+    
     address:{
         type: String,
         trim: true,
     },
+    
+    //to store tokens generated on login time
     tokens:[{
         token:{
             type:String,
@@ -75,25 +74,18 @@ const userSchema = mongoose.Schema({
     timestamps : true
 });
 
-// add virtual field to reference with Task data
-userSchema.virtual('totask',{
-    ref : 'Task',
-    localField: '_id',
-    foreignField: 'assignto'
-})
-
-// generate token for authorization
+/**generate token for authorization */
 userSchema.methods.generateAuthToken = async function(){
     const user = this
     const token = jwt.sign({_id:user._id.toString()}, 'taskapplication');   // generate token
 
-    user.tokens = user.tokens.concat({token}) // append token if user is loggedin from multiplr devices
-    await user.save()   // save token
+    user.tokens = user.tokens.concat({token}) // append token if user is loggedin from multiple devices
+    await user.save()
 
     return token
  }
 
-// generate hash password if password is changed - call before save data
+/**generate hash password if password is changed - call before save data*/
 //---------------------------------------
  userSchema.pre('save',async function (next) {
     const user = this;
@@ -104,7 +96,7 @@ userSchema.methods.generateAuthToken = async function(){
     next();
  });
 
- // find and match email and password to validate user for login
+ /**find and match email and password to validate user for login */
  userSchema.statics.findByCredentials = async(email,password) =>{
     const user = await User.findOne({email})
 
@@ -122,14 +114,14 @@ userSchema.methods.generateAuthToken = async function(){
     return user;
 }
  
-//when user is removed then delete all tasks of that user
+/**when user is removed then delete all tasks of that user */
  userSchema.pre('deleteOne',{document: true},async function (next){
     const user = this;
     await Task.deleteMany({assignto: user._id});
     next();
 })
 
-// delete protective data field from response object while pass JSON Data
+/**delete protective data field from response object while pass JSON Data*/
 userSchema.methods.toJSON = function() {
     const user = this;
     const userObject = user.toObject();

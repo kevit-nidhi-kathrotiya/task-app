@@ -1,8 +1,8 @@
-require('./db/mongoose')  // load file to coneect with database
+require('./db/mongoose')  // load file to conect with database
 const express = require('express')  
 const app = express()
 
-const userRouter = require('./routers/user') //get user routes
+const userRouter = require('./routers/user')
 const taskRouter = require('./routers/task')
 
 const port = process.env.PORT || 3000
