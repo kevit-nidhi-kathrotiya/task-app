@@ -7,15 +7,12 @@ const mongoose = require('mongoose');
 
 /**create new Task for passed employee ID - only manager can create task for employees*/
 //--------------------------------
-router.post('/tasks/:_empid', auth, async (req,res)=>{
-    const task = new Task({
-        ...req.body,
-        assignby: req.user._id,     // id of manager who created task
-        assignto: new mongoose.Types.ObjectId(req.params._empid) // id of employee to whom task is assigned
-    })
-    
+router.post('/tasks/:_empid', auth, async (req,res)=>{  
     try{
-        await task.save()
+        const task = await Task.create({...req.body, 
+                                    assignby: req.user._id, 
+                                    assignto: new mongoose.Types.ObjectId(req.params._empid)
+                                });
         res.status(201).send(task);
     }catch(e){
         res.status(400).send(e.message);
@@ -43,9 +40,9 @@ router.get('/tasks',auth,async (req,res)=>{
         findCondition = {createdAt : {$gte: req.query.minDate, $lte: req.query.maxDate}}
     }
 
-    // as per logged in user role
-    // manager - can access employee wise/all , priority wise, datewise tasks list
-    // employee - can access only own data priority wise, datewise list
+    /**as per logged in user role
+    * manager - can access employee wise/all , priority wise, datewise tasks list
+    * employee - can access only own data priority wise, datewise list*/
     try{
         if (req.user.role === 'manager'){
             tasks = req.query.empid === undefined ? await Task.find(findCondition).sort(sortCondition) : await Task.find({assignto : req.query.empid, ...findCondition}).sort(sortCondition);
